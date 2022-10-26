@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "../interfaces/IContractRegistry.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IAccountToken {
     function getAddressNFTs(address userAddress) external view returns (uint256[] memory NFTs, uint256 numberOfActive);
@@ -15,8 +15,6 @@ interface IStakingManager {
 }
 
 contract MetFiVoteCalculator {
-
-    using SafeERC20 for IERC20;
 
     //MetFI contract registry with hash for mfi, staking manager and account_token access
     IContractRegistry contractRegistry;
