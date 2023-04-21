@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IRewardDistributor.sol";
@@ -18,8 +18,8 @@ interface IRouter {
     event TokensBought(uint256 indexed nftId, uint256 busdPrice, uint256 numberOfTokens, uint256 accountLevel);
     event AccountOvertaken(uint256 indexed overtakenAccount, uint256 indexed overtakenBy, uint256 indexed level);
 
-    function createAccount(address newOwner, uint256 level, uint256 minTokensOut, string calldata newReferralLink, uint256 additionalTokensValue) external returns (uint256 newTokenID);
-    function createAccountWithReferral(address newOwner, string calldata referralId, uint256 level, uint256 minTokensOut, string calldata newReferralLink, uint256 additionalTokensValue) external returns (uint256 newTokenID);
+    function createAccount(address newOwner, uint256 level, uint256 minTokensOut, string calldata newReferralLink, uint256 additionalTokensValue, bool isCrypto) external returns (uint256 newTokenID);
+    function createAccountWithReferral(address newOwner, string calldata referralId, uint256 level, uint256 minTokensOut, string calldata newReferralLink, uint256 additionalTokensValue, bool isCrypto) external returns (uint256 newTokenID);
     function upgradeNFTToLevel(uint256 nftId, uint256 minTokensOut, uint256 finalLevel, uint256 additionalTokensValue) external;
 
     function setReferralLink(uint256 nftId, string calldata newReferralLink) external;
@@ -29,5 +29,8 @@ interface IRouter {
 
     function stakeTokens(uint256 nftId, uint256 numberOfTokens) external;
     function buyTokens(uint256 nftId, uint256 busdPrice, uint256 minTokensOut) external;
+
+    function setUserConfigUintValue(uint256 nftId, string memory key, uint256 value) external;
+    function setUserConfigStringValue(uint256 nftId, string memory key, string memory value) external;
 
 }

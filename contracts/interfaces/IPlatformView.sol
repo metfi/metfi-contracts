@@ -1,10 +1,11 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.18;
 
 import "./ITokenCollector.sol";
 import "./IMatrix.sol";
 import "./IRewardDistributor.sol";
+import "./IUserConfig.sol";
 
 interface IPlatformView {
 
@@ -22,6 +23,9 @@ interface IPlatformView {
         uint256 liquidationAvailableTime;
         uint256 liquidationExpiredTime;
         bool liquidated;
+        bool stakingPaused;
+        bool readOnly;
+        IUserConfig.UserConfigValues userConfigValues;
     }
 
     struct TreeNodeData {
@@ -44,7 +48,7 @@ interface IPlatformView {
         ITokenCollector.PriceCalculationType priceCalculationType;
         uint256 tokenCollectionPercentage;
         uint256 mfiLiquidityReserve;
-        uint256 busdLiquidityReserve;
+        uint256 stableCoinLiquidityReserve;
     }
 
     function getWalletData(address wallet) external view returns (NFTData[] memory);
@@ -52,12 +56,15 @@ interface IPlatformView {
     function getReferralCodeData(string calldata referralCode) external view returns (NFTData memory);
     function referralLinkExists(string calldata referralCode) external view returns (bool);
 
+    function getAddressActiveLoanNFTs(address borrower) external view returns (uint256[] memory);
+
     function getMFIPrice() external view returns (uint256);
     function getPlatformData() external view returns (PlatformData memory);
 
     function getTreeData(uint256 nftId, uint256 matrixLevel, uint256 toDepthLevel) external view returns (TreeNodeData memory selectedNFT, TreeNodeData[] memory subNFTs);
 
     function stakedTokens(uint256 nftId) external view returns (uint256);
+    function stakingPaused(uint256 nftId) external view returns (bool);
     function stakedTokensForAddress(address wallet) external view returns (uint256);
     function getUsersInLevels(uint256 nodeId, uint256 level) external view returns (uint256[] memory levels, uint256 totalUsers);
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -27,6 +27,7 @@ contract PlatformView is IPlatformView, ILostTokenProvider, IDestroyableContract
     bytes32 constant TOKEN_COLLECTOR_HASH = keccak256(abi.encodePacked('token_collector'));
     bytes32 constant REWARD_DISTRIBUTOR_HASH = keccak256(abi.encodePacked('reward_distributor'));
     bytes32 constant ACCOUNT_TOKEN_HASH = keccak256(abi.encodePacked('account_token'));
+    bytes32 constant USER_CONFIG_HASH = keccak256(abi.encodePacked('user_config'));
 
     modifier onlyTreasury() {
         require(msg.sender == contractRegistry.getContractAddress(TREASURY_HASH));
@@ -43,6 +44,7 @@ contract PlatformView is IPlatformView, ILostTokenProvider, IDestroyableContract
 
         IRewardDistributor rewardDistributor = IRewardDistributor(contractRegistry.getContractAddress(REWARD_DISTRIBUTOR_HASH));
         IAccountToken accountTokens = IAccountToken(contractRegistry.getContractAddress(ACCOUNT_TOKEN_HASH));
+        IUserConfig userConfig = IUserConfig(contractRegistry.getContractAddress(USER_CONFIG_HASH));
 
         NFT.ID = nftId;
         NFT.level = accountTokens.getAccountLevel(nftId);
@@ -51,6 +53,7 @@ contract PlatformView is IPlatformView, ILostTokenProvider, IDestroyableContract
         NFT.stakedTokens = stakedTokens(nftId);
         NFT.rewardingInfo = rewardDistributor.getAccountInfo(nftId);
         NFT.directlyEnrolledMembers = accountTokens.getAccountDirectlyEnrolledMembers(nftId);
+        NFT.userConfigValues = userConfig.getAllUserConfigValues(nftId);
 
         IAccountToken.LiquidationInfo memory liquidationInfo = accountTokens.getLiquidationInfo(nftId);
         NFT.liquidationRequestTime = liquidationInfo.requestTime;

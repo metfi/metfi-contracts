@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IRouter.sol";
@@ -11,6 +11,7 @@ import "./interfaces/ITokenCollector.sol";
 import "./interfaces/IContractRegistry.sol";
 import "./interfaces/ILostTokenProvider.sol";
 import "./interfaces/IDestroyableContract.sol";
+import "./interfaces/IUserConfig.sol";
 
 contract Router is IRouter, ILostTokenProvider, IDestroyableContract {
 
@@ -28,6 +29,7 @@ contract Router is IRouter, ILostTokenProvider, IDestroyableContract {
     bytes32 constant TOKEN_COLLECTOR_HASH = keccak256(abi.encodePacked('token_collector'));
     bytes32 constant REWARD_DISTRIBUTOR_HASH = keccak256(abi.encodePacked('reward_distributor'));
     bytes32 constant ACCOUNT_TOKEN_HASH = keccak256(abi.encodePacked('account_token'));
+    bytes32 constant USER_CONFIG_HASH = keccak256(abi.encodePacked('user_config'));
 
     modifier verifySenderAndNFT(uint256 nftId) {
         IAccountToken accountTokens = IAccountToken(contractRegistry.getContractAddress(ACCOUNT_TOKEN_HASH));
@@ -60,25 +62,25 @@ contract Router is IRouter, ILostTokenProvider, IDestroyableContract {
 
         uint256 busdMultiplier = 10 ** 18;
 
-        for(uint256 x = 0; x < _levelPricesInUSD.length; x++) {
+        for (uint256 x = 0; x < _levelPricesInUSD.length; x++) {
             levelPricesInBUSD.push(_levelPricesInUSD[x] * busdMultiplier);
         }
     }
 
     //Account management ----------------
-    function createAccount(address newOwner, uint256 level, uint256 minTokensOut, string calldata newReferralLink, uint256 additionalTokensValue) public onlyEOA override returns (uint256) {
+    function createAccount(address newOwner, uint256 level, uint256 minTokensOut, string calldata newReferralLink, uint256 additionalTokensValue, bool isCrypto) public onlyEOA override returns (uint256) {
 
-        return _createAccount(newOwner, 1, level, minTokensOut, newReferralLink, additionalTokensValue);
+        return _createAccount(newOwner, 1, level, minTokensOut, newReferralLink, additionalTokensValue, isCrypto);
     }
 
-    function createAccountWithReferral(address newOwner, string calldata referralId, uint256 level, uint256 minTokensOut, string calldata newReferralLink, uint256 additionalTokensValue) public onlyEOA override returns (uint256) {
+    function createAccountWithReferral(address newOwner, string calldata referralId, uint256 level, uint256 minTokensOut, string calldata newReferralLink, uint256 additionalTokensValue, bool isCrypto) public onlyEOA override returns (uint256) {
 
         IAccountToken accountTokens = IAccountToken(contractRegistry.getContractAddress(ACCOUNT_TOKEN_HASH));
         uint256 parentId = accountTokens.getAccountByReferral(referralId);
-        return _createAccount(newOwner, parentId, level, minTokensOut, newReferralLink, additionalTokensValue);
+        return _createAccount(newOwner, parentId, level, minTokensOut, newReferralLink, additionalTokensValue, isCrypto);
     }
 
-    function _createAccount(address newOwner, uint256 parentId, uint256 level, uint256 minTokensOut, string calldata newReferralLink, uint256 additionalTokensValue) internal returns (uint256) {
+    function _createAccount(address newOwner, uint256 parentId, uint256 level, uint256 minTokensOut, string calldata newReferralLink, uint256 additionalTokensValue, bool isCrypto) internal returns (uint256) {
 
         rebaseStaking();
         IRewardDistributor rewardDistributor = IRewardDistributor(contractRegistry.getContractAddress(REWARD_DISTRIBUTOR_HASH));
@@ -92,6 +94,11 @@ contract Router is IRouter, ILostTokenProvider, IDestroyableContract {
         //Mint new token
         uint256 newTokenID = accountTokens.createAccount(newOwner, parentId, level, newReferralLink);
         rewardDistributor.createAccount(newTokenID, parentId);
+
+        { //Wrapped to avoid stack too deep error
+            IUserConfig userConfig = IUserConfig(contractRegistry.getContractAddress(USER_CONFIG_HASH));
+            userConfig.setUserConfigUintValue(newTokenID, "is_crypto", isCrypto ? 1 : 0);
+        }
 
         uint256 freeMFITokensReceived = handleLevelCreationAndUpgrades(newTokenID, 0, level, additionalTokensValue, minTokensOut);
 
@@ -163,9 +170,9 @@ contract Router is IRouter, ILostTokenProvider, IDestroyableContract {
         }
 
         IStakingManager stakingManager = IStakingManager(contractRegistry.getContractAddress(STAKING_MANAGER_HASH));
-        if(initialLevel == 0) {
+        if (initialLevel == 0) {
             stakingManager.createStakingAccount(nftId, totalTokens, finalLevel);
-        }else {
+        } else {
             stakingManager.upgradeStakingAccountToLevel(nftId, finalLevel);
             stakingManager.addTokensToStaking(nftId, totalTokens);
         }
@@ -188,7 +195,7 @@ contract Router is IRouter, ILostTokenProvider, IDestroyableContract {
         IAccountToken accountTokens = IAccountToken(contractRegistry.getContractAddress(ACCOUNT_TOKEN_HASH));
 
         bool liquidated = accountTokens.requestLiquidation(nftId);
-        if(liquidated) {
+        if (liquidated) {
 
             IRewardDistributor rewardDistributor = IRewardDistributor(contractRegistry.getContractAddress(REWARD_DISTRIBUTOR_HASH));
             IStakingManager stakingManager = IStakingManager(contractRegistry.getContractAddress(STAKING_MANAGER_HASH));
@@ -197,7 +204,7 @@ contract Router is IRouter, ILostTokenProvider, IDestroyableContract {
             stakingManager.liquidateAccount(nftId, msg.sender);
 
             emit AccountLiquidated(nftId);
-        }else {
+        } else {
             emit AccountLiquidationStarted(nftId);
         }
     }
@@ -210,6 +217,22 @@ contract Router is IRouter, ILostTokenProvider, IDestroyableContract {
         accountTokens.cancelLiquidation(nftId);
 
         emit AccountLiquidationCanceled(nftId);
+    }
+
+    function setUserConfigUintValue(uint256 nftId, string memory key, uint256 value) external verifySenderAndNFT(nftId) override {
+
+        rebaseStaking();
+
+        IUserConfig userConfig = IUserConfig(contractRegistry.getContractAddress(USER_CONFIG_HASH));
+        userConfig.setUserConfigUintValue(nftId, key, value);
+    }
+
+    function setUserConfigStringValue(uint256 nftId, string memory key, string memory value) external verifySenderAndNFT(nftId) override {
+
+        rebaseStaking();
+
+        IUserConfig userConfig = IUserConfig(contractRegistry.getContractAddress(USER_CONFIG_HASH));
+        userConfig.setUserConfigStringValue(nftId, key, value);
     }
 
     //-------------------------
